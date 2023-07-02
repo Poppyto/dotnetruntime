@@ -28,14 +28,9 @@ namespace ILCompiler.DependencyAnalysis
     /// * Generate N bytes of zeros.
     /// * Generate a relocation to Nth entry in the lookup table that supplements the dehydrated stream.
     /// </remarks>
-    internal sealed class DehydratedDataNode : ObjectNode, ISymbolDefinitionNode
+    internal sealed class DehydratedDataNode : ObjectNode, ISymbolDefinitionNode, INodeWithSize
     {
-        private ObjectAndOffsetSymbolNode _endSymbol;
-
-        public DehydratedDataNode()
-        {
-            _endSymbol = new ObjectAndOffsetSymbolNode(this, 0, "__dehydrated_data_End", true);
-        }
+        private int? _size;
 
         public override bool IsShareable => false;
 
@@ -47,7 +42,7 @@ namespace ILCompiler.DependencyAnalysis
 
         public int Offset => 0;
 
-        public ISymbolNode EndSymbol => _endSymbol;
+        int INodeWithSize.Size => _size.Value;
 
         public void AppendMangledName(NameMangler nameMangler, Utf8StringBuilder sb)
         {
@@ -70,7 +65,7 @@ namespace ILCompiler.DependencyAnalysis
             // the most popular targets.
             ISymbolDefinitionNode firstSymbol = null;
             var relocOccurences = new Dictionary<ISymbolNode, int>();
-            foreach (ObjectNode.ObjectData o in factory.MetadataManager.GetDehydratableData())
+            foreach (ObjectData o in factory.MetadataManager.GetDehydratableData())
             {
                 firstSymbol ??= o.DefinedSymbols[0];
 
@@ -87,7 +82,7 @@ namespace ILCompiler.DependencyAnalysis
             if (firstSymbol != null)
                 builder.EmitReloc(firstSymbol, RelocType.IMAGE_REL_BASED_RELPTR32, -firstSymbol.Offset);
             else
-                return new ObjectData(Array.Empty<byte>(), Array.Empty<Relocation>(), 1, new ISymbolDefinitionNode[] { this, _endSymbol });
+                return new ObjectData(Array.Empty<byte>(), Array.Empty<Relocation>(), 1, new ISymbolDefinitionNode[] { this });
 
             // Sort the reloc targets and create reloc lookup table.
             KeyValuePair<ISymbolNode, int>[] relocSort = new List<KeyValuePair<ISymbolNode, int>>(relocOccurences).ToArray();
@@ -123,7 +118,10 @@ namespace ILCompiler.DependencyAnalysis
                     int oldPosition = dehydratedSegmentPosition;
                     dehydratedSegmentPosition = dehydratedSegmentPosition.AlignUp(o.Alignment);
                     if (dehydratedSegmentPosition > oldPosition)
-                        builder.EmitByte(DehydratedDataCommand.EncodeShort(DehydratedDataCommand.ZeroFill, dehydratedSegmentPosition - oldPosition));
+                    {
+                        int written = DehydratedDataCommand.Encode(DehydratedDataCommand.ZeroFill, dehydratedSegmentPosition - oldPosition, buff);
+                        builder.EmitBytes(buff, 0, written);
+                    }
                 }
 
                 int currentReloc = 0;
@@ -209,17 +207,14 @@ namespace ILCompiler.DependencyAnalysis
                     {
                         Debug.Assert(sourcePosition == reloc.Offset);
 
-#if DEBUG
+                        long delta;
                         unsafe
                         {
                             fixed (byte* pData = &o.Data[reloc.Offset])
                             {
-                                long delta = Relocation.ReadValue(reloc.RelocType, pData);
-                                // Extra work needed to be able to encode/decode relocs with deltas
-                                Debug.Assert(delta == 0);
+                                delta = Relocation.ReadValue(reloc.RelocType, pData);
                             }
                         }
-#endif
 
                         // The size of the relocation is included in the ObjectData bytes. Skip the literal bytes.
                         sourcePosition += Relocation.GetSize(reloc.RelocType);
@@ -228,7 +223,7 @@ namespace ILCompiler.DependencyAnalysis
                         if (target is ISymbolNodeWithLinkage withLinkage)
                             target = withLinkage.NodeForLinkage(factory);
 
-                        if (relocs.TryGetValue(target, out int targetIndex))
+                        if (delta == 0 && relocs.TryGetValue(target, out int targetIndex))
                         {
                             // Reloc goes through the lookup table
                             int relocCommand = reloc.RelocType switch
@@ -252,7 +247,7 @@ namespace ILCompiler.DependencyAnalysis
                             bool hasNextReloc;
                             do
                             {
-                                builder.EmitReloc(target, RelocType.IMAGE_REL_BASED_RELPTR32);
+                                builder.EmitReloc(target, RelocType.IMAGE_REL_BASED_RELPTR32, checked((int)delta));
                                 numRelocs++;
                                 hasNextReloc = false;
 
@@ -276,8 +271,16 @@ namespace ILCompiler.DependencyAnalysis
                                     if (nextTarget is ISymbolNodeWithLinkage nextTargetWithLinkage)
                                         nextTarget = nextTargetWithLinkage.NodeForLinkage(factory);
 
+                                    unsafe
+                                    {
+                                        fixed (byte* pData = &o.Data[reloc.Offset])
+                                        {
+                                            delta = Relocation.ReadValue(reloc.RelocType, pData);
+                                        }
+                                    }
+
                                     // We don't have a short code for it?
-                                    if (relocs.ContainsKey(nextTarget))
+                                    if (delta == 0 && relocs.ContainsKey(nextTarget))
                                         break;
 
                                     // This relocation is good - we'll generate it as part of the run
@@ -304,8 +307,7 @@ namespace ILCompiler.DependencyAnalysis
                 dehydratedSegmentPosition += o.Data.Length;
             }
 
-            _endSymbol.SetSymbolOffset(builder.CountBytes);
-            builder.AddSymbol(_endSymbol);
+            _size = builder.CountBytes;
 
             // Dehydrated data is followed by the reloc lookup table.
             for (int i = 0; i < relocSort.Length; i++)

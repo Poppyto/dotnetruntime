@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,14 +15,14 @@ namespace Microsoft.Extensions.Logging
     /// </summary>
     public class LoggerFactory : ILoggerFactory
     {
-        private readonly Dictionary<string, Logger> _loggers = new Dictionary<string, Logger>(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, Logger> _loggers = new ConcurrentDictionary<string, Logger>(StringComparer.Ordinal);
         private readonly List<ProviderRegistration> _providerRegistrations = new List<ProviderRegistration>();
         private readonly object _sync = new object();
         private volatile bool _disposed;
-        private IDisposable? _changeTokenRegistration;
+        private readonly IDisposable? _changeTokenRegistration;
         private LoggerFilterOptions _filterOptions;
         private IExternalScopeProvider? _scopeProvider;
-        private LoggerFactoryOptions _factoryOptions;
+        private readonly LoggerFactoryOptions _factoryOptions;
 
         /// <summary>
         /// Creates a new <see cref="LoggerFactory"/> instance.
@@ -103,7 +104,6 @@ namespace Microsoft.Extensions.Logging
         /// </summary>
         /// <param name="configure">A delegate to configure the <see cref="ILoggingBuilder"/>.</param>
         /// <returns>The <see cref="ILoggerFactory"/> that was created.</returns>
-        [RequiresDynamicCode("LoggerFactory.Create uses Microsoft.Extensions.DependencyInjection, which may require generating code dynamically at runtime.")]
         public static ILoggerFactory Create(Action<ILoggingBuilder> configure)
         {
             var serviceCollection = new ServiceCollection();
@@ -139,19 +139,22 @@ namespace Microsoft.Extensions.Logging
                 throw new ObjectDisposedException(nameof(LoggerFactory));
             }
 
-            lock (_sync)
+            if (!_loggers.TryGetValue(categoryName, out Logger? logger))
             {
-                if (!_loggers.TryGetValue(categoryName, out Logger? logger))
+                lock (_sync)
                 {
-                    logger = new Logger(CreateLoggers(categoryName));
+                    if (!_loggers.TryGetValue(categoryName, out logger))
+                    {
+                        logger = new Logger(categoryName, CreateLoggers(categoryName));
 
-                    (logger.MessageLoggers, logger.ScopeLoggers) = ApplyFilters(logger.Loggers);
+                        (logger.MessageLoggers, logger.ScopeLoggers) = ApplyFilters(logger.Loggers);
 
-                    _loggers[categoryName] = logger;
+                        _loggers[categoryName] = logger;
+                    }
                 }
-
-                return logger;
             }
+
+            return logger;
         }
 
         /// <summary>

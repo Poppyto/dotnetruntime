@@ -11,7 +11,6 @@
 #include "holder.h"
 #include "Crst.h"
 #include "rhbinder.h"
-#include "RWLock.h"
 #include "RuntimeInstance.h"
 #include "event.h"
 #include "regdisplay.h"
@@ -35,14 +34,6 @@ bool ShouldHijackForGcStress(uintptr_t CallsiteIP, HijackType ht);
 #endif // FEATURE_GC_STRESS
 
 #include "shash.inl"
-
-#ifndef DACCESS_COMPILE
-COOP_PINVOKE_HELPER(uint8_t *, RhSetErrorInfoBuffer, (uint8_t * pNewBuffer))
-{
-    return (uint8_t *) PalSetWerDataBuffer(pNewBuffer);
-}
-#endif // DACCESS_COMPILE
-
 
 ThreadStore *   RuntimeInstance::GetThreadStore()
 {
@@ -154,11 +145,6 @@ RuntimeInstance::OsModuleList* RuntimeInstance::GetOsModuleList()
     return dac_cast<DPTR(OsModuleList)>(dac_cast<TADDR>(this) + offsetof(RuntimeInstance, m_OsModuleList));
 }
 
-ReaderWriterLock& RuntimeInstance::GetTypeManagerLock()
-{
-    return m_TypeManagerLock;
-}
-
 #ifndef DACCESS_COMPILE
 
 RuntimeInstance::RuntimeInstance() :
@@ -250,12 +236,7 @@ bool RuntimeInstance::RegisterTypeManager(TypeManager * pTypeManager)
         return false;
 
     pEntry->m_pTypeManager = pTypeManager;
-
-    {
-        ReaderWriterLock::WriteHolder write(&m_TypeManagerLock);
-
-        m_TypeManagerList.PushHead(pEntry);
-    }
+    m_TypeManagerList.PushHeadInterlocked(pEntry);
 
     return true;
 }
@@ -275,13 +256,8 @@ COOP_PINVOKE_HELPER(void*, RhpRegisterOsModule, (HANDLE hOsModule))
         return nullptr; // Return null on failure.
 
     pEntry->m_osModule = hOsModule;
-
-    {
-        RuntimeInstance *pRuntimeInstance = GetRuntimeInstance();
-        ReaderWriterLock::WriteHolder write(&pRuntimeInstance->GetTypeManagerLock());
-
-        pRuntimeInstance->GetOsModuleList()->PushHead(pEntry);
-    }
+    RuntimeInstance *pRuntimeInstance = GetRuntimeInstance();
+    pRuntimeInstance->GetOsModuleList()->PushHeadInterlocked(pEntry);
 
     return hOsModule; // Return non-null on success
 }

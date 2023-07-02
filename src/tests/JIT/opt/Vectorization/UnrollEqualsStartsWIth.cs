@@ -5,10 +5,12 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Xunit;
 
 public class UnrollEqualsStartsWIth
 {
-    public static int Main()
+    [Fact]
+    public static int TestEntryPoint()
     {
         var testTypes = typeof(UnrollEqualsStartsWIth).Assembly
             .GetTypes()
@@ -71,11 +73,11 @@ public class UnrollEqualsStartsWIth
             "aaaaaa-aaaaa",
             "aaaaaaaaaaaa",
             "aaaaaaaaaaaaa",
-            "aaaaaaaaaжжaaa",
+            "aaaaaaaaa\u0436\u0436aaa",
             "aaaaaaaaaaaaaaa",
             "aaaAAAaaaaaazzz",
             "aaaaaaaaaaaaaaaa",
-            "aaaaaaaaaaaaжaaaa",
+            "aaaaaaaaaaaa\u0436aaaa",
             "aaaaaaAAAAaaaaaaa",
             "aaaaaaaaaaaaaaaaaa",
             "aaaaaaaggggggggggaa",
@@ -83,7 +85,7 @@ public class UnrollEqualsStartsWIth
             "aaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaAAAAaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaa\0",
-            "aaaччччччччччaaaaжжaaaaa",
+            "aaa\u0447\u0447\u0447\u0447\u0447\u0447\u0447\u0447\u0447\u0447aaaa\u0436\u0436aaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaa",
             "gggggggggggaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -100,7 +102,7 @@ public class UnrollEqualsStartsWIth
             // Add more test input - uppercase, lowercase, replace some chars
             testDataList.Add(td.ToUpper());
             testDataList.Add(td.Replace('a', 'b'));
-            testDataList.Add(td.Replace('a', 'Ф'));
+            testDataList.Add(td.Replace('a', '\u0424'));
             testDataList.Add(td.ToLower());
         }
 

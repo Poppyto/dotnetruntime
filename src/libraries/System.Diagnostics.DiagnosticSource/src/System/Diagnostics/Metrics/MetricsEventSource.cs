@@ -87,51 +87,63 @@ namespace System.Diagnostics.Metrics
         }
 
         [Event(2, Keywords = Keywords.TimeSeriesValues)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
         public void CollectionStart(string sessionId, DateTime intervalStartTime, DateTime intervalEndTime)
         {
             WriteEvent(2, sessionId, intervalStartTime, intervalEndTime);
         }
 
         [Event(3, Keywords = Keywords.TimeSeriesValues)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
         public void CollectionStop(string sessionId, DateTime intervalStartTime, DateTime intervalEndTime)
         {
             WriteEvent(3, sessionId, intervalStartTime, intervalEndTime);
         }
 
-        [Event(4, Keywords = Keywords.TimeSeriesValues)]
+        [Event(4, Keywords = Keywords.TimeSeriesValues, Version=1)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
-        public void CounterRateValuePublished(string sessionId, string meterName, string? meterVersion, string instrumentName, string? unit, string tags, string rate)
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
+        public void CounterRateValuePublished(string sessionId, string meterName, string? meterVersion, string instrumentName, string? unit, string tags, string rate, string value)
         {
-            WriteEvent(4, sessionId, meterName, meterVersion ?? "", instrumentName, unit ?? "", tags, rate);
+            WriteEvent(4, sessionId, meterName, meterVersion ?? "", instrumentName, unit ?? "", tags, rate, value);
         }
 
         [Event(5, Keywords = Keywords.TimeSeriesValues)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
         public void GaugeValuePublished(string sessionId, string meterName, string? meterVersion, string instrumentName, string? unit, string tags, string lastValue)
         {
             WriteEvent(5, sessionId, meterName, meterVersion ?? "", instrumentName, unit ?? "", tags, lastValue);
         }
 
-        [Event(6, Keywords = Keywords.TimeSeriesValues)]
+        [Event(6, Keywords = Keywords.TimeSeriesValues, Version=1)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
-        public void HistogramValuePublished(string sessionId, string meterName, string? meterVersion, string instrumentName, string? unit, string tags, string quantiles)
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
+        public void HistogramValuePublished(string sessionId, string meterName, string? meterVersion, string instrumentName, string? unit, string tags, string quantiles, int count, double sum)
         {
-            WriteEvent(6, sessionId, meterName, meterVersion ?? "", instrumentName, unit ?? "", tags, quantiles);
+            WriteEvent(6, sessionId, meterName, meterVersion ?? "", instrumentName, unit ?? "", tags, quantiles, count, sum);
         }
 
         // Sent when we begin to monitor the value of a intrument, either because new session filter arguments changed subscriptions
         // or because an instrument matching the pre-existing filter has just been created. This event precedes all *MetricPublished events
         // for the same named instrument.
         [Event(7, Keywords = Keywords.TimeSeriesValues)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
         public void BeginInstrumentReporting(string sessionId, string meterName, string? meterVersion, string instrumentName, string instrumentType, string? unit, string? description)
         {
             WriteEvent(7, sessionId, meterName, meterVersion ?? "", instrumentName, instrumentType, unit ?? "", description ?? "");
@@ -140,8 +152,10 @@ namespace System.Diagnostics.Metrics
         // Sent when we stop monitoring the value of a intrument, either because new session filter arguments changed subscriptions
         // or because the Meter has been disposed.
         [Event(8, Keywords = Keywords.TimeSeriesValues)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
         public void EndInstrumentReporting(string sessionId, string meterName, string? meterVersion, string instrumentName, string instrumentType, string? unit, string? description)
         {
             WriteEvent(8, sessionId, meterName, meterVersion ?? "", instrumentName, instrumentType, unit ?? "", description ?? "");
@@ -160,8 +174,10 @@ namespace System.Diagnostics.Metrics
         }
 
         [Event(11, Keywords = Keywords.InstrumentPublishing)]
+#if !NET8_0_OR_GREATER
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                            Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
         public void InstrumentPublished(string sessionId, string meterName, string? meterVersion, string instrumentName, string instrumentType, string? unit, string? description)
         {
             WriteEvent(11, sessionId, meterName, meterVersion ?? "", instrumentName, instrumentType, unit ?? "", description ?? "");
@@ -189,6 +205,16 @@ namespace System.Diagnostics.Metrics
         public void MultipleSessionsNotSupportedError(string runningSessionId)
         {
             WriteEvent(15, runningSessionId);
+        }
+
+        [Event(16, Keywords = Keywords.TimeSeriesValues, Version=1)]
+#if !NET8_0_OR_GREATER
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+                                      Justification = "This calls WriteEvent with all primitive arguments which is safe. Primitives are always serialized properly.")]
+#endif
+        public void UpDownCounterRateValuePublished(string sessionId, string meterName, string? meterVersion, string instrumentName, string? unit, string tags, string rate, string value)
+        {
+            WriteEvent(16, sessionId, meterName, meterVersion ?? "", instrumentName, unit ?? "", tags, rate, value);
         }
 
         /// <summary>
@@ -386,34 +412,39 @@ namespace System.Diagnostics.Metrics
                 {
                     return;
                 }
+
                 string[] specStrings = metricsSpecs.Split(s_instrumentSeparators, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string specString in specStrings)
                 {
-                    if (!MetricSpec.TryParse(specString, out MetricSpec spec))
+                    MetricSpec spec = MetricSpec.Parse(specString);
+                    Parent.Message($"Parsed metric: {spec}");
+                    if (spec.InstrumentName != null)
                     {
-                        Parent.Message($"Failed to parse metric spec: {specString}");
+                        _aggregationManager!.Include(spec.MeterName, spec.InstrumentName);
                     }
                     else
                     {
-                        Parent.Message($"Parsed metric: {spec}");
-                        if (spec.InstrumentName != null)
-                        {
-                            _aggregationManager!.Include(spec.MeterName, spec.InstrumentName);
-                        }
-                        else
-                        {
-                            _aggregationManager!.Include(spec.MeterName);
-                        }
+                        _aggregationManager!.Include(spec.MeterName);
                     }
                 }
             }
 
             private static void TransmitMetricValue(Instrument instrument, LabeledAggregationStatistics stats, string sessionId)
             {
-                if (stats.AggregationStatistics is RateStatistics rateStats)
+                if (stats.AggregationStatistics is CounterStatistics rateStats)
                 {
-                    Log.CounterRateValuePublished(sessionId, instrument.Meter.Name, instrument.Meter.Version, instrument.Name, instrument.Unit, FormatTags(stats.Labels),
-                        rateStats.Delta.HasValue ? rateStats.Delta.Value.ToString(CultureInfo.InvariantCulture) : "");
+                    if (rateStats.IsMonotonic)
+                    {
+                        Log.CounterRateValuePublished(sessionId, instrument.Meter.Name, instrument.Meter.Version, instrument.Name, instrument.Unit, FormatTags(stats.Labels),
+                            rateStats.Delta.HasValue ? rateStats.Delta.Value.ToString(CultureInfo.InvariantCulture) : "",
+                            rateStats.Value.ToString(CultureInfo.InvariantCulture));
+                    }
+                    else
+                    {
+                        Log.UpDownCounterRateValuePublished(sessionId, instrument.Meter.Name, instrument.Meter.Version, instrument.Name, instrument.Unit, FormatTags(stats.Labels),
+                            rateStats.Delta.HasValue ? rateStats.Delta.Value.ToString(CultureInfo.InvariantCulture) : "",
+                            rateStats.Value.ToString(CultureInfo.InvariantCulture));
+                    }
                 }
                 else if (stats.AggregationStatistics is LastValueStatistics lastValueStats)
                 {
@@ -422,7 +453,7 @@ namespace System.Diagnostics.Metrics
                 }
                 else if (stats.AggregationStatistics is HistogramStatistics histogramStats)
                 {
-                    Log.HistogramValuePublished(sessionId, instrument.Meter.Name, instrument.Meter.Version, instrument.Name, instrument.Unit, FormatTags(stats.Labels), FormatQuantiles(histogramStats.Quantiles));
+                    Log.HistogramValuePublished(sessionId, instrument.Meter.Name, instrument.Meter.Version, instrument.Name, instrument.Unit, FormatTags(stats.Labels), FormatQuantiles(histogramStats.Quantiles), histogramStats.Count, histogramStats.Sum);
                 }
             }
 
@@ -431,7 +462,7 @@ namespace System.Diagnostics.Metrics
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < labels.Length; i++)
                 {
-                    sb.AppendFormat(CultureInfo.InvariantCulture, "{0}={1}", labels[i].Key, labels[i].Value);
+                    sb.Append(labels[i].Key).Append('=').Append(labels[i].Value);
                     if (i != labels.Length - 1)
                     {
                         sb.Append(',');
@@ -445,7 +476,7 @@ namespace System.Diagnostics.Metrics
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < quantiles.Length; i++)
                 {
-                    sb.AppendFormat(CultureInfo.InvariantCulture, "{0}={1}", quantiles[i].Quantile, quantiles[i].Value);
+                    sb.Append(quantiles[i].Quantile).Append('=').Append(quantiles[i].Value);
                     if (i != quantiles.Length - 1)
                     {
                         sb.Append(';');
@@ -467,20 +498,18 @@ namespace System.Diagnostics.Metrics
                 InstrumentName = instrumentName;
             }
 
-            public static bool TryParse(string text, out MetricSpec spec)
+            public static MetricSpec Parse(string text)
             {
                 int slashIdx = text.IndexOf(MeterInstrumentSeparator);
-                if (slashIdx == -1)
+                if (slashIdx < 0)
                 {
-                    spec = new MetricSpec(text.Trim(), null);
-                    return true;
+                    return new MetricSpec(text.Trim(), null);
                 }
                 else
                 {
-                    string meterName = text.Substring(0, slashIdx).Trim();
-                    string? instrumentName = text.Substring(slashIdx + 1).Trim();
-                    spec = new MetricSpec(meterName, instrumentName);
-                    return true;
+                    string meterName = text.AsSpan(0, slashIdx).Trim().ToString();
+                    string? instrumentName = text.AsSpan(slashIdx + 1).Trim().ToString();
+                    return new MetricSpec(meterName, instrumentName);
                 }
             }
 

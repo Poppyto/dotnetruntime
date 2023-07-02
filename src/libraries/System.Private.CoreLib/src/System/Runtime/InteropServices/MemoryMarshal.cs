@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
+#pragma warning disable 8500 // sizeof of managed types
+
 namespace System.Runtime.InteropServices
 {
     /// <summary>
@@ -20,14 +22,14 @@ namespace System.Runtime.InteropServices
         /// That type may not contain pointers or references. This is checked at runtime in order to preserve type safety.
         /// </summary>
         /// <param name="span">The source slice, of type <typeparamref name="T"/>.</param>
-        /// <exception cref="System.ArgumentException">
+        /// <exception cref="ArgumentException">
         /// Thrown when <typeparamref name="T"/> contains pointers.
         /// </exception>
-        /// <exception cref="System.OverflowException">
+        /// <exception cref="OverflowException">
         /// Thrown if the Length property of the new Span would exceed int.MaxValue.
         /// </exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Span<byte> AsBytes<T>(Span<T> span)
+        public static unsafe Span<byte> AsBytes<T>(Span<T> span)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
@@ -35,7 +37,7 @@ namespace System.Runtime.InteropServices
 
             return new Span<byte>(
                 ref Unsafe.As<T, byte>(ref GetReference(span)),
-                checked(span.Length * Unsafe.SizeOf<T>()));
+                checked(span.Length * sizeof(T)));
         }
 
         /// <summary>
@@ -43,14 +45,14 @@ namespace System.Runtime.InteropServices
         /// That type may not contain pointers or references. This is checked at runtime in order to preserve type safety.
         /// </summary>
         /// <param name="span">The source slice, of type <typeparamref name="T"/>.</param>
-        /// <exception cref="System.ArgumentException">
+        /// <exception cref="ArgumentException">
         /// Thrown when <typeparamref name="T"/> contains pointers.
         /// </exception>
-        /// <exception cref="System.OverflowException">
+        /// <exception cref="OverflowException">
         /// Thrown if the Length property of the new Span would exceed int.MaxValue.
         /// </exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ReadOnlySpan<byte> AsBytes<T>(ReadOnlySpan<T> span)
+        public static unsafe ReadOnlySpan<byte> AsBytes<T>(ReadOnlySpan<T> span)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
@@ -58,7 +60,7 @@ namespace System.Runtime.InteropServices
 
             return new ReadOnlySpan<byte>(
                 ref Unsafe.As<T, byte>(ref GetReference(span)),
-                checked(span.Length * Unsafe.SizeOf<T>()));
+                checked(span.Length * sizeof(T)));
         }
 
         /// <summary>Creates a <see cref="Memory{T}"/> from a <see cref="ReadOnlyMemory{T}"/>.</summary>
@@ -91,14 +93,14 @@ namespace System.Runtime.InteropServices
         /// for pinning but must never be dereferenced. This is useful for interop with methods that do not accept null pointers for zero-sized buffers.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe ref T GetNonNullPinnableReference<T>(Span<T> span) => ref (span.Length != 0) ? ref Unsafe.AsRef<T>(in span._reference) : ref Unsafe.AsRef<T>((void*)1);
+        internal static unsafe ref T GetNonNullPinnableReference<T>(Span<T> span) => ref (span.Length != 0) ? ref Unsafe.AsRef(in span._reference) : ref Unsafe.AsRef<T>((void*)1);
 
         /// <summary>
         /// Returns a reference to the 0th element of the ReadOnlySpan. If the ReadOnlySpan is empty, returns a reference to fake non-null pointer. Such a reference
         /// can be used for pinning but must never be dereferenced. This is useful for interop with methods that do not accept null pointers for zero-sized buffers.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe ref T GetNonNullPinnableReference<T>(ReadOnlySpan<T> span) => ref (span.Length != 0) ? ref Unsafe.AsRef<T>(in span._reference) : ref Unsafe.AsRef<T>((void*)1);
+        internal static unsafe ref T GetNonNullPinnableReference<T>(ReadOnlySpan<T> span) => ref (span.Length != 0) ? ref Unsafe.AsRef(in span._reference) : ref Unsafe.AsRef<T>((void*)1);
 #pragma warning restore IDE0060 // https://github.com/dotnet/roslyn-analyzers/issues/6228
 
         /// <summary>
@@ -109,7 +111,7 @@ namespace System.Runtime.InteropServices
         /// Supported only for platforms that support misaligned memory access or when the memory block is aligned by other means.
         /// </remarks>
         /// <param name="span">The source slice, of type <typeparamref name="TFrom"/>.</param>
-        /// <exception cref="System.ArgumentException">
+        /// <exception cref="ArgumentException">
         /// Thrown when <typeparamref name="TFrom"/> or <typeparamref name="TTo"/> contains pointers.
         /// </exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -164,7 +166,7 @@ namespace System.Runtime.InteropServices
         /// Supported only for platforms that support misaligned memory access or when the memory block is aligned by other means.
         /// </remarks>
         /// <param name="span">The source slice, of type <typeparamref name="TFrom"/>.</param>
-        /// <exception cref="System.ArgumentException">
+        /// <exception cref="ArgumentException">
         /// Thrown when <typeparamref name="TFrom"/> or <typeparamref name="TTo"/> contains pointers.
         /// </exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -207,7 +209,7 @@ namespace System.Runtime.InteropServices
             }
 
             return new ReadOnlySpan<TTo>(
-                ref Unsafe.As<TFrom, TTo>(ref MemoryMarshal.GetReference(span)),
+                ref Unsafe.As<TFrom, TTo>(ref GetReference(span)),
                 toLength);
         }
 
@@ -414,14 +416,14 @@ namespace System.Runtime.InteropServices
         /// Reads a structure of type T out of a read-only span of bytes.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T Read<T>(ReadOnlySpan<byte> source)
+        public static unsafe T Read<T>(ReadOnlySpan<byte> source)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 ThrowHelper.ThrowInvalidTypeWithPointersNotSupported(typeof(T));
             }
-            if (Unsafe.SizeOf<T>() > source.Length)
+            if (sizeof(T) > source.Length)
             {
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.length);
             }
@@ -433,14 +435,14 @@ namespace System.Runtime.InteropServices
         /// </summary>
         /// <returns>If the span is too small to contain the type T, return false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryRead<T>(ReadOnlySpan<byte> source, out T value)
+        public static unsafe bool TryRead<T>(ReadOnlySpan<byte> source, out T value)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 ThrowHelper.ThrowInvalidTypeWithPointersNotSupported(typeof(T));
             }
-            if (Unsafe.SizeOf<T>() > (uint)source.Length)
+            if (sizeof(T) > (uint)source.Length)
             {
                 value = default;
                 return false;
@@ -453,18 +455,18 @@ namespace System.Runtime.InteropServices
         /// Writes a structure of type T into a span of bytes.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Write<T>(Span<byte> destination, ref T value)
+        public static unsafe void Write<T>(Span<byte> destination, ref T value)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 ThrowHelper.ThrowInvalidTypeWithPointersNotSupported(typeof(T));
             }
-            if ((uint)Unsafe.SizeOf<T>() > (uint)destination.Length)
+            if ((uint)sizeof(T) > (uint)destination.Length)
             {
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.length);
             }
-            Unsafe.WriteUnaligned<T>(ref GetReference(destination), value);
+            Unsafe.WriteUnaligned(ref GetReference(destination), value);
         }
 
         /// <summary>
@@ -472,18 +474,18 @@ namespace System.Runtime.InteropServices
         /// </summary>
         /// <returns>If the span is too small to contain the type T, return false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryWrite<T>(Span<byte> destination, ref T value)
+        public static unsafe bool TryWrite<T>(Span<byte> destination, ref T value)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 ThrowHelper.ThrowInvalidTypeWithPointersNotSupported(typeof(T));
             }
-            if (Unsafe.SizeOf<T>() > (uint)destination.Length)
+            if (sizeof(T) > (uint)destination.Length)
             {
                 return false;
             }
-            Unsafe.WriteUnaligned<T>(ref GetReference(destination), value);
+            Unsafe.WriteUnaligned(ref GetReference(destination), value);
             return true;
         }
 
@@ -495,14 +497,14 @@ namespace System.Runtime.InteropServices
         /// Supported only for platforms that support misaligned memory access or when the memory block is aligned by other means.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref T AsRef<T>(Span<byte> span)
+        public static unsafe ref T AsRef<T>(Span<byte> span)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 ThrowHelper.ThrowInvalidTypeWithPointersNotSupported(typeof(T));
             }
-            if (Unsafe.SizeOf<T>() > (uint)span.Length)
+            if (sizeof(T) > (uint)span.Length)
             {
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.length);
             }
@@ -517,14 +519,14 @@ namespace System.Runtime.InteropServices
         /// Supported only for platforms that support misaligned memory access or when the memory block is aligned by other means.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref readonly T AsRef<T>(ReadOnlySpan<byte> span)
+        public static unsafe ref readonly T AsRef<T>(ReadOnlySpan<byte> span)
             where T : struct
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 ThrowHelper.ThrowInvalidTypeWithPointersNotSupported(typeof(T));
             }
-            if (Unsafe.SizeOf<T>() > (uint)span.Length)
+            if (sizeof(T) > (uint)span.Length)
             {
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.length);
             }
@@ -542,8 +544,8 @@ namespace System.Runtime.InteropServices
         /// that array should not be unpinned while the returned Memory<typeparamref name="T"/> is still in use.
         /// Calling this method on an unpinned array could result in memory corruption.</remarks>
         /// <remarks>Returns default when <paramref name="array"/> is null.</remarks>
-        /// <exception cref="System.ArrayTypeMismatchException">Thrown when <paramref name="array"/> is covariant and array's type is not exactly T[].</exception>
-        /// <exception cref="System.ArgumentOutOfRangeException">
+        /// <exception cref="ArrayTypeMismatchException">Thrown when <paramref name="array"/> is covariant and array's type is not exactly T[].</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
         /// Thrown when the specified <paramref name="start"/> or end index is not in the range (&lt;0 or &gt;=Length).
         /// </exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

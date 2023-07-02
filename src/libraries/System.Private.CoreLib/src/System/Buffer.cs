@@ -42,12 +42,9 @@ namespace System
                 }
             }
 
-            if (srcOffset < 0)
-                throw new ArgumentOutOfRangeException(nameof(srcOffset), SR.ArgumentOutOfRange_MustBeNonNegInt32);
-            if (dstOffset < 0)
-                throw new ArgumentOutOfRangeException(nameof(dstOffset), SR.ArgumentOutOfRange_MustBeNonNegInt32);
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count), SR.ArgumentOutOfRange_MustBeNonNegInt32);
+            ArgumentOutOfRangeException.ThrowIfNegative(srcOffset);
+            ArgumentOutOfRangeException.ThrowIfNegative(dstOffset);
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
 
             nuint uCount = (nuint)count;
             nuint uSrcOffset = (nuint)srcOffset;
@@ -88,7 +85,7 @@ namespace System
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.index);
             }
 
-            return Unsafe.Add<byte>(ref MemoryMarshal.GetArrayDataReference(array), index);
+            return Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(array), index);
         }
 
         public static void SetByte(Array array, int index, byte value)
@@ -99,7 +96,7 @@ namespace System
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.index);
             }
 
-            Unsafe.Add<byte>(ref MemoryMarshal.GetArrayDataReference(array), index) = value;
+            Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(array), index) = value;
         }
 
         // The attributes on this method are chosen for best JIT performance.
@@ -130,6 +127,7 @@ namespace System
             Memmove(ref *(byte*)destination, ref *(byte*)source, checked((nuint)sourceBytesToCopy));
         }
 
+        [Intrinsic] // Unrolled for small constant lengths
         internal static void Memmove(ref byte dest, ref byte src, nuint len)
         {
             // P/Invoke into the native version when the buffers are overlapping.
@@ -347,16 +345,18 @@ namespace System
 
 #if !MONO // Mono BulkMoveWithWriteBarrier is in terms of elements (not bytes) and takes a type handle.
 
+        [Intrinsic]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Memmove<T>(ref T destination, ref T source, nuint elementCount)
+        internal static unsafe void Memmove<T>(ref T destination, ref T source, nuint elementCount)
         {
+#pragma warning disable 8500 // sizeof of managed types
             if (!RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 // Blittable memmove
                 Memmove(
                     ref Unsafe.As<T, byte>(ref destination),
                     ref Unsafe.As<T, byte>(ref source),
-                    elementCount * (nuint)Unsafe.SizeOf<T>());
+                    elementCount * (nuint)sizeof(T));
             }
             else
             {
@@ -364,8 +364,9 @@ namespace System
                 BulkMoveWithWriteBarrier(
                     ref Unsafe.As<T, byte>(ref destination),
                     ref Unsafe.As<T, byte>(ref source),
-                    elementCount * (nuint)Unsafe.SizeOf<T>());
+                    elementCount * (nuint)sizeof(T));
             }
+#pragma warning restore 8500
         }
 
         // The maximum block size to for __BulkMoveWithWriteBarrier FCall. This is required to avoid GC starvation.

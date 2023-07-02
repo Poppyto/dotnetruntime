@@ -16,14 +16,14 @@ namespace Microsoft.Extensions.Logging.Console
     /// </summary>
     [UnsupportedOSPlatform("browser")]
     [ProviderAlias("Console")]
-    public class ConsoleLoggerProvider : ILoggerProvider, ISupportExternalScope
+    public partial class ConsoleLoggerProvider : ILoggerProvider, ISupportExternalScope
     {
         private readonly IOptionsMonitor<ConsoleLoggerOptions> _options;
         private readonly ConcurrentDictionary<string, ConsoleLogger> _loggers;
         private ConcurrentDictionary<string, ConsoleFormatter> _formatters;
         private readonly ConsoleLoggerProcessor _messageQueue;
 
-        private IDisposable? _optionsReloadToken;
+        private readonly IDisposable? _optionsReloadToken;
         private IExternalScopeProvider _scopeProvider = NullExternalScopeProvider.Instance;
 
         /// <summary>
@@ -68,7 +68,13 @@ namespace Microsoft.Extensions.Logging.Console
         [UnsupportedOSPlatformGuard("windows")]
         private static bool DoesConsoleSupportAnsi()
         {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (
+#if NETFRAMEWORK
+                Environment.OSVersion.Platform != PlatformID.Win32NT
+#else
+                !RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+#endif
+                )
             {
                 return true;
             }

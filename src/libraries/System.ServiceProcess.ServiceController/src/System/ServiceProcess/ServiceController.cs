@@ -65,8 +65,14 @@ namespace System.ServiceProcess
             if (!CheckMachineName(machineName))
                 throw new ArgumentException(SR.Format(SR.BadMachineName, machineName));
 
-            if (string.IsNullOrEmpty(name))
-                throw new ArgumentException(SR.Format(SR.InvalidParameter, nameof(name), name));
+            if (name is null)
+            {
+                throw new ArgumentNullException(nameof(name));
+            }
+            if (name.Length == 0)
+            {
+                throw new ArgumentException(SR.Format(SR.InvalidParameter, nameof(name), name), nameof(name));
+            }
 
             _machineName = machineName;
             _eitherName = name;
@@ -977,7 +983,7 @@ namespace System.ServiceProcess
         /// <param name="timeout">Wait for specific timeout</param>
         public void WaitForStatus(ServiceControllerStatus desiredStatus, TimeSpan timeout)
         {
-            if (!Enum.IsDefined(typeof(ServiceControllerStatus), desiredStatus))
+            if (!Enum.IsDefined(desiredStatus))
                 throw new ArgumentException(SR.Format(SR.InvalidEnumArgument, nameof(desiredStatus), (int)desiredStatus, typeof(ServiceControllerStatus)));
 
             DateTime start = DateTime.UtcNow;

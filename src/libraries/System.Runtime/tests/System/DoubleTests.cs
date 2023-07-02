@@ -324,6 +324,12 @@ namespace System.Tests
             Assert.Equal(0xFFF00000_00000000u, BitConverter.DoubleToUInt64Bits(double.NegativeInfinity));
         }
 
+        [Fact]
+        public static void NegativeZero()
+        {
+            Assert.Equal(0x80000000_00000000u, BitConverter.DoubleToUInt64Bits(double.NegativeZero));
+        }
+
         public static IEnumerable<object[]> Parse_Valid_TestData()
         {
             NumberStyles defaultStyle = NumberStyles.Float | NumberStyles.AllowThousands;
@@ -781,7 +787,7 @@ namespace System.Tests
 
             NumberFormatInfo invariantFormat = NumberFormatInfo.InvariantInfo;
             yield return new object[] { double.Epsilon, "G", invariantFormat, "5E-324" };
-            yield return new object[] { 32.5, "C100", invariantFormat, "¤32.5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" };
+            yield return new object[] { 32.5, "C100", invariantFormat, "\u00A432.5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" };
             yield return new object[] { 32.5, "P100", invariantFormat, "3,250.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 %" };
             yield return new object[] { 32.5, "E100", invariantFormat, "3.2500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000E+001" };
             yield return new object[] { 32.5, "F100", invariantFormat, "32.5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" };
@@ -941,28 +947,7 @@ namespace System.Tests
 
                     try
                     {
-                        char[] actual;
-                        int charsWritten;
-
-                        // Just right
-                        actual = new char[localExpected.Length];
-                        Assert.True(localI.TryFormat(actual.AsSpan(), out charsWritten, localFormat, localProvider));
-                        Assert.Equal(localExpected.Length, charsWritten);
-                        Assert.Equal(localExpected, new string(actual));
-
-                        // Longer than needed
-                        actual = new char[localExpected.Length + 1];
-                        Assert.True(localI.TryFormat(actual.AsSpan(), out charsWritten, localFormat, localProvider));
-                        Assert.Equal(localExpected.Length, charsWritten);
-                        Assert.Equal(localExpected, new string(actual, 0, charsWritten));
-
-                        // Too short
-                        if (localExpected.Length > 0)
-                        {
-                            actual = new char[localExpected.Length - 1];
-                            Assert.False(localI.TryFormat(actual.AsSpan(), out charsWritten, localFormat, localProvider));
-                            Assert.Equal(0, charsWritten);
-                        }
+                        NumberFormatTestHelper.TryFormatNumberTest(localI, localFormat, localProvider, localExpected, formatCasingMatchesOutput: false);
                     }
                     catch (Exception exc)
                     {
@@ -1616,6 +1601,44 @@ namespace System.Tests
         {
             AssertExtensions.Equal(-expectedResult, double.TanPi(-value), allowedVariance);
             AssertExtensions.Equal(+expectedResult, double.TanPi(+value), allowedVariance);
+        }
+
+        [Theory]
+        [InlineData(double.NegativeInfinity,    double.NegativeInfinity,    0.5,    double.NegativeInfinity)]
+        [InlineData(double.NegativeInfinity,    double.NaN,                 0.5,    double.NaN)]
+        [InlineData(double.NegativeInfinity,    double.PositiveInfinity,    0.5,    double.NaN)]
+        [InlineData(double.NegativeInfinity,    0.0,                        0.5,    double.NegativeInfinity)]
+        [InlineData(double.NegativeInfinity,    1.0,                        0.5,    double.NegativeInfinity)]
+        [InlineData(double.NaN,                 double.NegativeInfinity,    0.5,    double.NaN)]
+        [InlineData(double.NaN,                 double.NaN,                 0.5,    double.NaN)]
+        [InlineData(double.NaN,                 double.PositiveInfinity,    0.5,    double.NaN)]
+        [InlineData(double.NaN,                 0.0,                        0.5,    double.NaN)]
+        [InlineData(double.NaN,                 1.0,                        0.5,    double.NaN)]
+        [InlineData(double.PositiveInfinity,    double.NegativeInfinity,    0.5,    double.NaN)]
+        [InlineData(double.PositiveInfinity,    double.NaN,                 0.5,    double.NaN)]
+        [InlineData(double.PositiveInfinity,    double.PositiveInfinity,    0.5,    double.PositiveInfinity)]
+        [InlineData(double.PositiveInfinity,    0.0,                        0.5,    double.PositiveInfinity)]
+        [InlineData(double.PositiveInfinity,    1.0,                        0.5,    double.PositiveInfinity)]
+        [InlineData(1.0,                        3.0,                        0.0,    1.0)]
+        [InlineData(1.0,                        3.0,                        0.5,    2.0)]
+        [InlineData(1.0,                        3.0,                        1.0,    3.0)]
+        [InlineData(1.0,                        3.0,                        2.0,    5.0)]
+        [InlineData(2.0,                        4.0,                        0.0,    2.0)]
+        [InlineData(2.0,                        4.0,                        0.5,    3.0)]
+        [InlineData(2.0,                        4.0,                        1.0,    4.0)]
+        [InlineData(2.0,                        4.0,                        2.0,    6.0)]
+        [InlineData(3.0,                        1.0,                        0.0,    3.0)]
+        [InlineData(3.0,                        1.0,                        0.5,    2.0)]
+        [InlineData(3.0,                        1.0,                        1.0,    1.0)]
+        [InlineData(3.0,                        1.0,                        2.0,   -1.0)]
+        [InlineData(4.0,                        2.0,                        0.0,    4.0)]
+        [InlineData(4.0,                        2.0,                        0.5,    3.0)]
+        [InlineData(4.0,                        2.0,                        1.0,    2.0)]
+        [InlineData(4.0,                        2.0,                        2.0,    0.0)]
+        public static void LerpTest(double value1, double value2, double amount, double expectedResult)
+        {
+            AssertExtensions.Equal(+expectedResult, double.Lerp(+value1, +value2, amount), 0);
+            AssertExtensions.Equal((expectedResult == 0.0) ? expectedResult : -expectedResult, double.Lerp(-value1, -value2, amount), 0);
         }
     }
 }

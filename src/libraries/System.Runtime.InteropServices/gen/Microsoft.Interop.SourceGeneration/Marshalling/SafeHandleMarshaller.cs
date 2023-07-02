@@ -130,7 +130,7 @@ namespace Microsoft.Interop
                     }
                     break;
                 case StubCodeContext.Stage.Marshal:
-                    if (info.RefKind != RefKind.Out)
+                    if (!info.IsManagedReturnPosition && info.RefKind != RefKind.Out)
                     {
                         // <managedIdentifier>.DangerousAddRef(ref <addRefdIdentifier>);
                         yield return ExpressionStatement(
@@ -234,6 +234,6 @@ namespace Microsoft.Interop
 
         public bool UsesNativeIdentifier(TypePositionInfo info, StubCodeContext context) => true;
 
-        public bool SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, StubCodeContext context) => false;
+        public ByValueMarshalKindSupport SupportsByValueMarshalKind(ByValueContentsMarshalKind marshalKind, StubCodeContext context) => ByValueMarshalKindSupport.NotSupported;
     }
 }

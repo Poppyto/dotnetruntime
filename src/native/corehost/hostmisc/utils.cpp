@@ -245,13 +245,14 @@ const pal::char_t* get_arch_name(pal::architecture arch)
 
 const pal::char_t* get_current_arch_name()
 {
-    return get_arch_name(get_current_arch());
+    assert(pal::strcmp(get_arch_name(get_current_arch()), _STRINGIFY(CURRENT_ARCH_NAME)) == 0);
+    return _STRINGIFY(CURRENT_ARCH_NAME);
 }
 
 pal::string_t get_current_runtime_id(bool use_fallback)
 {
     pal::string_t rid;
-    if (pal::getenv(_X("DOTNET_RUNTIME_ID"), &rid))
+    if (try_get_runtime_id_from_env(rid))
         return rid;
 
     rid = pal::get_current_os_rid_platform();
@@ -267,44 +268,9 @@ pal::string_t get_current_runtime_id(bool use_fallback)
     return rid;
 }
 
-bool get_env_shared_store_dirs(std::vector<pal::string_t>* dirs, const pal::string_t& arch, const pal::string_t& tfm)
+bool try_get_runtime_id_from_env(pal::string_t& out_rid)
 {
-    pal::string_t path;
-    if (!pal::getenv(_X("DOTNET_SHARED_STORE"), &path))
-    {
-        return false;
-    }
-
-    pal::string_t tok;
-    pal::stringstream_t ss(path);
-    while (std::getline(ss, tok, PATH_SEPARATOR))
-    {
-        if (pal::realpath(&tok))
-        {
-            append_path(&tok, arch.c_str());
-            append_path(&tok, tfm.c_str());
-            dirs->push_back(tok);
-        }
-    }
-    return true;
-}
-
-bool get_global_shared_store_dirs(std::vector<pal::string_t>* dirs, const pal::string_t& arch, const pal::string_t& tfm)
-{
-    std::vector<pal::string_t> global_dirs;
-    if (!pal::get_global_dotnet_dirs(&global_dirs))
-    {
-        return false;
-    }
-
-    for (pal::string_t dir : global_dirs)
-    {
-        append_path(&dir, RUNTIME_STORE_DIRECTORY_NAME);
-        append_path(&dir, arch.c_str());
-        append_path(&dir, tfm.c_str());
-        dirs->push_back(dir);
-    }
-    return true;
+    return pal::getenv(_X("DOTNET_RUNTIME_ID"), &out_rid);
 }
 
 /**

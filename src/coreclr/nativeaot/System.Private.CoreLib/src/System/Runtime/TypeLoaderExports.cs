@@ -10,7 +10,6 @@ using System.Runtime.InteropServices;
 
 namespace System.Runtime
 {
-    [ReflectionBlocked]
     public static class TypeLoaderExports
     {
         public static unsafe void ActivatorCreateInstanceAny(ref object ptrToData, IntPtr pEETypePtr)
@@ -109,39 +108,21 @@ namespace System.Runtime
             return RawCalliHelper.Call<object>(entry.Result, arg, entry.AuxResult);
         }
 
-        public static IntPtr UpdateTypeFloatingDictionary(IntPtr eetypePtr, IntPtr dictionaryPtr)
-        {
-            // No caching needed. Update is in-place, and happens once per dictionary
-            return RuntimeAugments.TypeLoaderCallbacks.UpdateFloatingDictionary(eetypePtr, dictionaryPtr);
-        }
-
-        public static IntPtr UpdateMethodFloatingDictionary(IntPtr dictionaryPtr)
-        {
-            // No caching needed. Update is in-place, and happens once per dictionary
-            return RuntimeAugments.TypeLoaderCallbacks.UpdateFloatingDictionary(dictionaryPtr, dictionaryPtr);
-        }
-
-#if FEATURE_UNIVERSAL_GENERICS
-        public static unsafe IntPtr GetDelegateThunk(object delegateObj, int whichThunk)
-        {
-            Entry entry = LookupInCache(s_cache, (IntPtr)delegateObj.GetMethodTable(), new IntPtr(whichThunk));
-            if (entry == null)
-            {
-                entry = CacheMiss((IntPtr)delegateObj.GetMethodTable(), new IntPtr(whichThunk),
-                    (IntPtr context, IntPtr signature, object contextObject, ref IntPtr auxResult)
-                        => RuntimeAugments.TypeLoaderCallbacks.GetDelegateThunk((Delegate)contextObject, (int)signature),
-                    delegateObj);
-            }
-            return entry.Result;
-        }
-#endif
-
         public static unsafe IntPtr GVMLookupForSlot(object obj, RuntimeMethodHandle slot)
         {
-            Entry entry = LookupInCache(s_cache, (IntPtr)obj.GetMethodTable(), *(IntPtr*)&slot);
-            entry ??= CacheMiss((IntPtr)obj.GetMethodTable(), *(IntPtr*)&slot,
+            Entry entry = LookupInCache(s_cache, (IntPtr)obj.GetMethodTable(), RuntimeMethodHandle.ToIntPtr(slot));
+            if (entry != null)
+                return entry.Result;
+
+            return GVMLookupForSlotSlow(obj, slot);
+        }
+
+        private static unsafe IntPtr GVMLookupForSlotSlow(object obj, RuntimeMethodHandle slot)
+        {
+            Entry entry = CacheMiss((IntPtr)obj.GetMethodTable(), RuntimeMethodHandle.ToIntPtr(slot),
                     (IntPtr context, IntPtr signature, object contextObject, ref IntPtr auxResult)
-                        => Internal.Runtime.CompilerServices.GenericVirtualMethodSupport.GVMLookupForSlot(new RuntimeTypeHandle(new EETypePtr(context)), *(RuntimeMethodHandle*)&signature));
+                        => RuntimeAugments.TypeLoaderCallbacks.ResolveGenericVirtualMethodTarget(new RuntimeTypeHandle(new EETypePtr(context)), *(RuntimeMethodHandle*)&signature));
+
             return entry.Result;
         }
 
@@ -160,7 +141,11 @@ namespace System.Runtime
         private static Entry LookupInCache(Entry[] cache, IntPtr context, IntPtr signature)
         {
             int key = ((context.GetHashCode() >> 4) ^ signature.GetHashCode()) & (cache.Length - 1);
+#if DEBUG
             Entry entry = cache[key];
+#else
+            Entry entry = Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(cache), key);
+#endif
             while (entry != null)
             {
                 if (entry.Context == context && entry.Signature == signature)
@@ -345,7 +330,6 @@ namespace System.Runtime
         }
     }
 
-    [ReflectionBlocked]
     public delegate IntPtr RuntimeObjectFactory(IntPtr context, IntPtr signature, object contextObject, ref IntPtr auxResult);
 
     internal static unsafe class RawCalliHelper

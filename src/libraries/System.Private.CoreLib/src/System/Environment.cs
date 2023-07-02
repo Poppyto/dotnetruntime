@@ -86,6 +86,19 @@ namespace System
             SetEnvironmentVariableFromRegistry(variable, value, fromMachine: fromMachine);
         }
 
+#if !MONO
+        internal static string[]? s_commandLineArgs;
+
+        public static string[] GetCommandLineArgs()
+        {
+            // s_commandLineArgs is expected to be initialize with application command line arguments
+            // during startup. GetCommandLineArgsNative fallback is used for hosted libraries.
+            return s_commandLineArgs != null ?
+                (string[])s_commandLineArgs.Clone() :
+                GetCommandLineArgsNative();
+        }
+#endif
+
         public static string CommandLine => PasteArguments.Paste(GetCommandLineArgs(), pasteFirstArgumentUsingArgV0Rules: true);
 
         public static string CurrentDirectory
@@ -112,10 +125,10 @@ namespace System
 
         public static string GetFolderPath(SpecialFolder folder, SpecialFolderOption option)
         {
-            if (!Enum.IsDefined(typeof(SpecialFolder), folder))
+            if (!Enum.IsDefined(folder))
                 throw new ArgumentOutOfRangeException(nameof(folder), folder, SR.Format(SR.Arg_EnumIllegalVal, folder));
 
-            if (option != SpecialFolderOption.None && !Enum.IsDefined(typeof(SpecialFolderOption), option))
+            if (option != SpecialFolderOption.None && !Enum.IsDefined(option))
                 throw new ArgumentOutOfRangeException(nameof(option), option, SR.Format(SR.Arg_EnumIllegalVal, option));
 
             return GetFolderPathCore(folder, option);
@@ -209,7 +222,7 @@ namespace System
         public static string StackTrace
         {
             [MethodImpl(MethodImplOptions.NoInlining)] // Prevent inlining from affecting where the stacktrace starts
-            get => new StackTrace(true).ToString(System.Diagnostics.StackTrace.TraceFormat.Normal);
+            get => new StackTrace(true).ToString(Diagnostics.StackTrace.TraceFormat.Normal);
         }
 
         private static volatile int s_systemPageSize;

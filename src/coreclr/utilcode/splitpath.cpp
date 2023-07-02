@@ -76,7 +76,6 @@ void    SplitPathInterior(
      *  relative path:
      *      top\next\last\  ; or
      *      top/next/last/
-     *  Mixed use of '/' and '\' within a path is also tolerated
      *  fname:
      *  0 to _MAX_FNAME-1 characters not including the '.' character
      *  ext:
@@ -87,7 +86,7 @@ void    SplitPathInterior(
 
     /* extract drive letter and :, if any */
 
-    if ((wcslen(wszPath) > (_MAX_DRIVE - 2)) && (*(wszPath + _MAX_DRIVE - 2) == _T(':'))) {
+    if ((u16_strlen(wszPath) > (_MAX_DRIVE - 2)) && (*(wszPath + _MAX_DRIVE - 2) == _T(':'))) {
         if (pwszDrive && pcchDrive) {
             *pwszDrive = wszPath;
             *pcchDrive = _MAX_DRIVE - 1;
@@ -108,7 +107,7 @@ void    SplitPathInterior(
      */
 
     for (last_slash = NULL, p = (WCHAR *)wszPath; *p; p++) {
-        if (*p == _T('/') || *p == _T('\\'))
+        if (*p == DIRECTORY_SEPARATOR_CHAR_W)
             /* point to one beyond for later copy */
             last_slash = p + 1;
         else if (*p == _T('.'))

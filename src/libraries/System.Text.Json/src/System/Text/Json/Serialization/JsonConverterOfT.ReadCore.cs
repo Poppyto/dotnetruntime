@@ -5,18 +5,10 @@ namespace System.Text.Json.Serialization
 {
     public partial class JsonConverter<T>
     {
-        internal sealed override object? ReadCoreAsObject(
-            ref Utf8JsonReader reader,
-            JsonSerializerOptions options,
-            scoped ref ReadStack state)
-        {
-            return ReadCore(ref reader, options, ref state);
-        }
-
         internal T? ReadCore(
             ref Utf8JsonReader reader,
             JsonSerializerOptions options,
-            scoped ref ReadStack state)
+            ref ReadStack state)
         {
             try
             {
@@ -56,7 +48,7 @@ namespace System.Text.Json.Serialization
                     }
                 }
 
-                bool success = TryRead(ref reader, state.Current.JsonTypeInfo.Type, options, ref state, out T? value);
+                bool success = TryRead(ref reader, state.Current.JsonTypeInfo.Type, options, ref state, out T? value, out _);
                 if (success)
                 {
                     // Read any trailing whitespace. This will throw if JsonCommentHandling=Disallow.

@@ -170,10 +170,6 @@
 #include "stringarraylist.h"
 #include "stubhelpers.h"
 
-#ifdef FEATURE_STACK_SAMPLING
-#include "stacksampler.h"
-#endif
-
 #ifdef FEATURE_COMINTEROP
 #include "runtimecallablewrapper.h"
 #include "mngstdinterfaces.h"
@@ -876,6 +872,11 @@ void EEStartupHelper()
         // requires write barriers to have been set up on x86, which happens as part
         // of InitJITHelpers1.
         hr = g_pGCHeap->Initialize();
+        if (FAILED(hr))
+        {
+            LogErrorToHost("GC heap initialization failed with error 0x%08X", hr);
+        }
+
         IfFailGo(hr);
 
 #ifdef FEATURE_PERFTRACING
@@ -927,13 +928,6 @@ void EEStartupHelper()
 
         SystemDomain::System()->DefaultDomain()->SetupSharedStatics();
 
-#ifdef FEATURE_STACK_SAMPLING
-        StackSampler::Init();
-#endif
-
-        // Perform any once-only SafeHandle initialization.
-        SafeHandle::Init();
-
 #ifdef FEATURE_MINIMETADATA_IN_TRIAGEDUMPS
         // retrieve configured max size for the mini-metadata buffer (defaults to 64KB)
         g_MiniMetaDataBuffMaxSize = CLRConfig::GetConfigValue(CLRConfig::INTERNAL_MiniMdBufferCapacity);
@@ -946,7 +940,6 @@ void EEStartupHelper()
         g_MiniMetaDataBuffAddress = (TADDR) ClrVirtualAlloc(NULL,
                                                 g_MiniMetaDataBuffMaxSize, MEM_COMMIT, PAGE_READWRITE);
 #endif // FEATURE_MINIMETADATA_IN_TRIAGEDUMPS
-
 
         g_fEEStarted = TRUE;
         g_EEStartupStatus = S_OK;
@@ -968,9 +961,6 @@ void EEStartupHelper()
         {
             SystemDomain::SystemModule()->ExpandAll();
         }
-
-        // Perform CoreLib consistency check if requested
-        g_CoreLib.CheckExtended();
 #endif // _DEBUG
 
 
@@ -978,6 +968,7 @@ ErrExit: ;
     }
     EX_CATCH
     {
+        hr = GET_EXCEPTION()->GetHR();
     }
     EX_END_CATCH(RethrowTerminalExceptionsWithInitCheck)
 
@@ -1243,7 +1234,7 @@ void STDMETHODCALLTYPE EEShutDownHelper(BOOL fIsDllUnloading)
 
 #ifdef FEATURE_PERFMAP
         // Flush and close the perf map file.
-        PerfMap::Destroy();
+        PerfMap::Disable();
 #endif
 
         ceeInf.JitProcessShutdownWork();  // Do anything JIT-related that needs to happen at shutdown.
@@ -1628,8 +1619,10 @@ void InitializeGarbageCollector()
     g_pFreeObjectMethodTable->SetComponentSize(1);
 
     hr = GCHeapUtilities::LoadAndInitialize();
+
     if (hr != S_OK)
     {
+        LogErrorToHost("GC initialization failed with error 0x%08X", hr);
         ThrowHR(hr);
     }
 

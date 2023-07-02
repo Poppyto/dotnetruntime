@@ -41,7 +41,7 @@ namespace System.Reflection
                 // Why don't we just use "&"?
                 if (t.IsByRef)
                 {
-                    sb.Append(typeName.TrimEnd(new char[] { '&' }));
+                    sb.Append(typeName.TrimEnd('&'));
                     sb.Append(" ByRef");
                 }
                 else
@@ -119,6 +119,7 @@ namespace System.Reflection
             this.PositionImpl = -1; // since parameter positions are zero-based, return type pos is -1
             this.AttrsImpl = ParameterAttributes.Retval;
             this.marshalAs = marshalAs;
+            this.DefaultValueImpl = DBNull.Value;
         }
 
         // ctor for no metadata MethodInfo in the DynamicMethod and RuntimeMethodInfo cases
@@ -256,7 +257,7 @@ namespace System.Reflection
                 {
                     return GetMetadataToken();
                 }
-                throw new ArgumentException("Can't produce MetadataToken for member of type " + MemberImpl.GetType());
+                throw new ArgumentException(SR.NoMetadataTokenAvailable);
             }
         }
 
@@ -303,7 +304,7 @@ namespace System.Reflection
         internal extern int GetMetadataToken();
 
         public override Type[] GetOptionalCustomModifiers() =>
-            MemberImpl is DynamicMethod.RTDynamicMethod ? Type.EmptyTypes : GetCustomModifiers(true);
+            MemberImpl is DynamicMethod ? Type.EmptyTypes : GetCustomModifiers(true);
 
         internal object[]? GetPseudoCustomAttributes()
         {
@@ -375,7 +376,7 @@ namespace System.Reflection
         }
 
         public override Type[] GetRequiredCustomModifiers() =>
-            MemberImpl is DynamicMethod.RTDynamicMethod ? Type.EmptyTypes : GetCustomModifiers(false);
+            MemberImpl is DynamicMethod ? Type.EmptyTypes : GetCustomModifiers(false);
 
         public override bool HasDefaultValue
         {

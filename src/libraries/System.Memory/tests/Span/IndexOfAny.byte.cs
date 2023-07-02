@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Buffers;
 using System.Text;
 using Xunit;
 
@@ -60,7 +59,7 @@ namespace System.SpanTests
         {
             Span<byte> span = new Span<byte>(Array.Empty<byte>());
 
-            Assert.Equal(-1, IndexOfAny(span, 0, 0));
+            Assert.Equal(-1, IndexOfAny<byte>(span, 0, 0));
             Assert.Equal(-1, IndexOfAny(span, new byte[2]));
         }
 
@@ -163,7 +162,7 @@ namespace System.SpanTests
 
                 Span<byte> span = new Span<byte>(a);
 
-                Assert.Equal(length - 3, IndexOfAny(span, 200, 200));
+                Assert.Equal(length - 3, IndexOfAny<byte>(span, 200, 200));
                 Assert.Equal(length - 3, IndexOfAny(span, new byte[] { 200, 200 }));
             }
         }
@@ -178,7 +177,7 @@ namespace System.SpanTests
                 a[length + 1] = 98;
                 Span<byte> span = new Span<byte>(a, 1, length - 1);
 
-                Assert.Equal(-1, IndexOfAny(span, 99, 98));
+                Assert.Equal(-1, IndexOfAny<byte>(span, 99, 98));
                 Assert.Equal(-1, IndexOfAny(span, new byte[] { 99, 98 }));
             }
 
@@ -189,7 +188,7 @@ namespace System.SpanTests
                 a[length + 1] = 99;
                 Span<byte> span = new Span<byte>(a, 1, length - 1);
 
-                Assert.Equal(-1, IndexOfAny(span, 99, 99));
+                Assert.Equal(-1, IndexOfAny<byte>(span, 99, 99));
                 Assert.Equal(-1, IndexOfAny(span, new byte[] { 99, 99 }));
             }
         }
@@ -199,7 +198,7 @@ namespace System.SpanTests
         {
             Span<byte> span = new Span<byte>(Array.Empty<byte>());
 
-            Assert.Equal(-1, IndexOfAny(span, 0, 0, 0));
+            Assert.Equal(-1, IndexOfAny<byte>(span, 0, 0, 0));
             Assert.Equal(-1, IndexOfAny(span, new byte[3]));
         }
 
@@ -308,7 +307,7 @@ namespace System.SpanTests
 
                 Span<byte> span = new Span<byte>(a);
 
-                Assert.Equal(length - 4, IndexOfAny(span, 200, 200, 200));
+                Assert.Equal(length - 4, IndexOfAny<byte>(span, 200, 200, 200));
                 Assert.Equal(length - 4, IndexOfAny(span, new byte[] { 200, 200, 200 }));
             }
         }
@@ -323,7 +322,7 @@ namespace System.SpanTests
                 a[length + 1] = 98;
                 Span<byte> span = new Span<byte>(a, 1, length - 1);
 
-                Assert.Equal(-1, IndexOfAny(span, 99, 98, 99));
+                Assert.Equal(-1, IndexOfAny<byte>(span, 99, 98, 99));
                 Assert.Equal(-1, IndexOfAny(span, new byte[] { 99, 98, 99 }));
             }
 
@@ -334,7 +333,7 @@ namespace System.SpanTests
                 a[length + 1] = 99;
                 Span<byte> span = new Span<byte>(a, 1, length - 1);
 
-                Assert.Equal(-1, IndexOfAny(span, 99, 99, 99));
+                Assert.Equal(-1, IndexOfAny<byte>(span, 99, 99, 99));
                 Assert.Equal(-1, IndexOfAny(span, new byte[] { 99, 99, 99 }));
             }
         }
@@ -528,57 +527,6 @@ namespace System.SpanTests
                 int index = IndexOfAny(span, values);
                 Assert.Equal(-1, index);
             }
-        }
-
-        [Fact]
-        [OuterLoop("Takes about a second to execute")]
-        public static void TestIndexOfAny_RandomInputs_Byte()
-        {
-            IndexOfAnyCharTestHelper.TestRandomInputs(
-                expected: IndexOfAnyReferenceImpl,
-                indexOfAny: (searchSpace, values) => searchSpace.IndexOfAny(values),
-                indexOfAnyValues: (searchSpace, values) => searchSpace.IndexOfAny(values));
-
-            static int IndexOfAnyReferenceImpl(ReadOnlySpan<byte> searchSpace, ReadOnlySpan<byte> values)
-            {
-                for (int i = 0; i < searchSpace.Length; i++)
-                {
-                    if (values.Contains(searchSpace[i]))
-                    {
-                        return i;
-                    }
-                }
-
-                return -1;
-            }
-        }
-
-        private static int IndexOf(Span<byte> span, byte value)
-        {
-            int index = span.IndexOf(value);
-            Assert.Equal(index, span.IndexOfAny(IndexOfAnyValues.Create(stackalloc byte[] { value })));
-            return index;
-        }
-
-        private static int IndexOfAny(Span<byte> span, byte value0, byte value1)
-        {
-            int index = span.IndexOfAny(value0, value1);
-            Assert.Equal(index, span.IndexOfAny(IndexOfAnyValues.Create(stackalloc byte[] { value0, value1 })));
-            return index;
-        }
-
-        private static int IndexOfAny(Span<byte> span, byte value0, byte value1, byte value2)
-        {
-            int index = span.IndexOfAny(value0, value1, value2);
-            Assert.Equal(index, span.IndexOfAny(IndexOfAnyValues.Create(stackalloc byte[] { value0, value1, value2 })));
-            return index;
-        }
-
-        private static int IndexOfAny(Span<byte> span, ReadOnlySpan<byte> values)
-        {
-            int index = span.IndexOfAny(values);
-            Assert.Equal(index, span.IndexOfAny(IndexOfAnyValues.Create(values)));
-            return index;
         }
     }
 }

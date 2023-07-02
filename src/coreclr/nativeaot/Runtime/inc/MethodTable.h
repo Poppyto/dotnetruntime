@@ -11,33 +11,11 @@
 class MethodTable;
 class TypeManager;
 struct TypeManagerHandle;
-class DynamicModule;
 struct EETypeRef;
 
 #if !defined(USE_PORTABLE_HELPERS)
 #define SUPPORTS_WRITABLE_DATA 1
 #endif
-
-//-------------------------------------------------------------------------------------------------
-// Array of these represents the interfaces implemented by a type
-
-class EEInterfaceInfo
-{
-  public:
-    MethodTable * GetInterfaceEEType()
-    {
-        return ((UIntTarget)m_pInterfaceEEType & ((UIntTarget)1)) ?
-               *(MethodTable**)((UIntTarget)m_ppInterfaceEETypeViaIAT & ~((UIntTarget)1)) :
-               m_pInterfaceEEType;
-    }
-
-  private:
-    union
-    {
-        MethodTable *    m_pInterfaceEEType;         // m_uFlags == InterfaceFlagNormal
-        MethodTable **   m_ppInterfaceEETypeViaIAT;  // m_uFlags == InterfaceViaIATFlag
-    };
-};
 
 //-------------------------------------------------------------------------------------------------
 // The subset of TypeFlags that Redhawk knows about at runtime
@@ -76,6 +54,7 @@ enum EETypeElementType : uint8_t
     ElementType_SzArray = 0x18,
     ElementType_ByRef = 0x19,
     ElementType_Pointer = 0x1A,
+    ElementType_FunctionPointer = 0x1B,
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -86,15 +65,12 @@ enum EETypeElementType : uint8_t
 // GetFieldOffset() APIs.
 enum EETypeField
 {
-    ETF_InterfaceMap,
     ETF_TypeManagerIndirection,
     ETF_WritableData,
     ETF_Finalizer,
     ETF_OptionalFieldsPtr,
     ETF_SealedVirtualSlots,
     ETF_DynamicTemplateType,
-    ETF_DynamicDispatchMap,
-    ETF_DynamicModule,
     ETF_GenericDefinition,
     ETF_GenericComposition,
     ETF_DynamicGcStatics,
@@ -121,15 +97,9 @@ private:
         {
             // Kinds.CanonicalEEType
             MethodTable*     m_pBaseType;
-            MethodTable**    m_ppBaseTypeViaIAT;
-
-            // Kinds.ClonedEEType
-            MethodTable** m_pCanonicalType;
-            MethodTable** m_ppCanonicalTypeViaIAT;
 
             // Kinds.ParameterizedEEType
             MethodTable*  m_pRelatedParameterType;
-            MethodTable** m_ppRelatedParameterTypeViaIAT;
         };
     };
 
@@ -150,7 +120,7 @@ private:
     TgtPTR_Void         m_VTable[];  // make this explicit so the binder gets the right alignment
 
     // after the m_usNumVtableSlots vtable slots, we have m_usNumInterfaces slots of
-    // EEInterfaceInfo, and after that a couple of additional pointers based on whether the type is
+    // MethodTable*, and after that a couple of additional pointers based on whether the type is
     // finalizable (the address of the finalizer code) or has optional fields (pointer to the compacted
     // fields).
 
@@ -161,11 +131,7 @@ private:
         // simplified version of MethodTable. See LimitedEEType definition below.
         EETypeKindMask = 0x00030000,
 
-        // This flag is set when m_pRelatedType is in a different module.  In that case, m_pRelatedType
-        // actually points to a 'fake' MethodTable whose m_pRelatedType field lines up with an IAT slot in this
-        // module, which then points to the desired MethodTable.  In other words, there is an extra indirection
-        // through m_pRelatedType to get to the related type in the other module.
-        RelatedTypeViaIATFlag   = 0x00040000,
+        // Unused = 0x00040000,
 
         IsDynamicTypeFlag       = 0x00080000,
 
@@ -197,6 +163,7 @@ private:
     {
         HasEagerFinalizerFlag = 0x0001,
         HasCriticalFinalizerFlag = 0x0002,
+        IsTrackedReferenceWithFinalizerFlag = 0x0004,
     };
 
 public:
@@ -204,7 +171,7 @@ public:
     enum Kinds
     {
         CanonicalEEType         = 0x00000000,
-        ClonedEEType            = 0x00010000,
+        // unused               = 0x00010000,
         ParameterizedEEType     = 0x00020000,
         GenericTypeDefEEType    = 0x00030000,
     };
@@ -217,12 +184,6 @@ public:
     PTR_PTR_Code get_SlotPtr(uint16_t slotNumber);
 
     Kinds get_Kind();
-
-    bool IsCloned()
-        { return get_Kind() == ClonedEEType; }
-
-    bool IsRelatedTypeViaIAT()
-        { return (m_uFlags & RelatedTypeViaIATFlag) != 0; }
 
     bool IsArray()
     {
@@ -244,8 +205,6 @@ public:
 
     bool IsInterface()
         { return GetElementType() == ElementType_Interface; }
-
-    MethodTable * get_CanonicalEEType();
 
     MethodTable * get_RelatedParameterType();
 
@@ -270,6 +229,11 @@ public:
     bool HasCriticalFinalizer()
     {
         return (m_uFlags & HasCriticalFinalizerFlag) && !HasComponentSize();
+    }
+
+    bool IsTrackedReferenceWithFinalizer()
+    {
+        return (m_uFlags & IsTrackedReferenceWithFinalizerFlag) && !HasComponentSize();
     }
 
     bool  HasComponentSize()
@@ -307,15 +271,6 @@ public:
 
         MethodTable * pThisEEType = this;
 
-        if (pThisEEType->IsCloned())
-            pThisEEType = pThisEEType->get_CanonicalEEType();
-
-        if (pOtherEEType->IsCloned())
-            pOtherEEType = pOtherEEType->get_CanonicalEEType();
-
-        if (pThisEEType == pOtherEEType)
-            return true;
-
         if (pThisEEType->IsParameterizedType() && pOtherEEType->IsParameterizedType())
         {
             return pThisEEType->get_RelatedParameterType()->IsEquivalentTo(pOtherEEType->get_RelatedParameterType()) &&
@@ -339,8 +294,6 @@ public:
 
     bool IsGeneric()
         { return (m_uFlags & IsGenericFlag) != 0; }
-
-    DynamicModule* get_DynamicModule();
 
     TypeManagerHandle* GetTypeManagerPtr();
 

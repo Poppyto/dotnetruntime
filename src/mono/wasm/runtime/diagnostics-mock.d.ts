@@ -5,7 +5,6 @@
 
 //! This is not considered public API with backward compatibility guarantees. 
 
-declare const promise_control_symbol: unique symbol;
 interface PromiseController<T = any> {
     isDone: boolean;
     readonly promise: Promise<T>;
@@ -13,7 +12,7 @@ interface PromiseController<T = any> {
     reject: (reason?: any) => void;
 }
 interface ControllablePromise<T = any> extends Promise<T> {
-    [promise_control_symbol]: PromiseController<T>;
+    __brand: "ControllablePromise";
 }
 interface PromiseAndController<T> {
     promise: ControllablePromise<T>;
@@ -44,9 +43,9 @@ interface EventPipeCollectTracingCommandProvider {
     provider_name: string;
     filter_data: string | null;
 }
-declare type RemoveCommandSetAndId<T extends ProtocolClientCommandBase> = Omit<T, "command_set" | "command">;
+type RemoveCommandSetAndId<T extends ProtocolClientCommandBase> = Omit<T, "command_set" | "command">;
 
-declare type FilterPredicate = (data: ArrayBuffer) => boolean;
+type FilterPredicate = (data: ArrayBuffer) => boolean;
 interface MockScriptConnection {
     waitForSend(filter: FilterPredicate): Promise<void>;
     waitForSend<T>(filter: FilterPredicate, extract: (data: ArrayBuffer) => T): Promise<T>;

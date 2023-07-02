@@ -489,7 +489,7 @@ bool DefaultPolicy::BudgetCheck() const
     // so it performs the actual check.
     //
     InlineStrategy* strategy   = m_RootCompiler->m_inlineStrategy;
-    const bool      overBudget = strategy->BudgetCheck(m_CodeSize);
+    const bool      overBudget = strategy->BudgetCheck(EstimatedTotalILSize());
 
     if (overBudget)
     {
@@ -502,11 +502,26 @@ bool DefaultPolicy::BudgetCheck() const
         //
         assert(m_IsForceInlineKnown);
         assert(m_CallsiteDepth > 0);
-        const bool allowOverBudget = m_IsForceInline && (m_CallsiteDepth == 1);
+        bool allowOverBudget = m_IsForceInline && (m_CallsiteDepth <= strategy->GetMaxForceInlineDepth());
+
+        const unsigned skipBudgetChecksSize = 12;
+        if (!allowOverBudget && (m_CodeSize <= skipBudgetChecksSize))
+        {
+            // We don't want to give up on various getters/setters if we're running out of budget
+            JITDUMP("Allowing over-budget for small methods\n")
+            allowOverBudget = true;
+        }
+
+        if (!allowOverBudget && m_IsNoReturnKnown && m_IsNoReturn)
+        {
+            // We're not going to inline no-return calls anyway
+            JITDUMP("Allowing over-budget for known no-returns\n")
+            allowOverBudget = true;
+        }
 
         if (allowOverBudget)
         {
-            JITDUMP("Allowing over-budget top-level forceinline\n");
+            JITDUMP("Allowing over-budget: top-level forceinline, no return call, or small inlinee\n");
         }
         else
         {
@@ -841,14 +856,12 @@ int DefaultPolicy::DetermineNativeSizeEstimate()
 //    Estimates the native size (in bytes, scaled up by 10x) for the
 //    call site. While the quality of the estimate here is questionable
 //    (especially for x64) it is being left as is for legacy compatibility.
-
+//
 int DefaultPolicy::DetermineCallsiteNativeSizeEstimate(CORINFO_METHOD_INFO* methInfo)
 {
     int callsiteSize = 55; // Direct call take 5 native bytes; indirect call takes 6 native bytes.
 
-    bool hasThis = methInfo->args.hasThis();
-
-    if (hasThis)
+    if (methInfo->args.hasImplicitThis())
     {
         callsiteSize += 30; // "mov" or "lea"
     }
@@ -856,14 +869,13 @@ int DefaultPolicy::DetermineCallsiteNativeSizeEstimate(CORINFO_METHOD_INFO* meth
     CORINFO_ARG_LIST_HANDLE argLst = methInfo->args.args;
     COMP_HANDLE             comp   = m_RootCompiler->info.compCompHnd;
 
-    for (unsigned i = (hasThis ? 1 : 0); i < methInfo->args.totalILArgs(); i++, argLst = comp->getArgNext(argLst))
+    for (unsigned i = 0; i < methInfo->args.numArgs; i++, argLst = comp->getArgNext(argLst))
     {
-        var_types sigType = (var_types)m_RootCompiler->eeGetArgType(argLst, &methInfo->args);
+        CORINFO_CLASS_HANDLE sigClass;
+        var_types            sigType = JITtype2varType(strip(comp->getArgType(&methInfo->args, argLst, &sigClass)));
 
         if (sigType == TYP_STRUCT)
         {
-            typeInfo verType = m_RootCompiler->verParseArgSigToTypeInfo(&methInfo->args, argLst);
-
             /*
 
             IN0028: 00009B      lea     EAX, bword ptr [EBP-14H]
@@ -875,7 +887,7 @@ int DefaultPolicy::DetermineCallsiteNativeSizeEstimate(CORINFO_METHOD_INFO* meth
 
             callsiteSize += 10; // "lea     EAX, bword ptr [EBP-14H]"
 
-            unsigned opsz  = roundUp(comp->getClassSize(verType.GetClassHandle()), TARGET_POINTER_SIZE);
+            unsigned opsz  = roundUp(comp->getClassSize(sigClass), TARGET_POINTER_SIZE);
             unsigned slots = opsz / TARGET_POINTER_SIZE;
 
             callsiteSize += slots * 20; // "push    gword ptr [EAX+offs]  "
@@ -1319,6 +1331,10 @@ void ExtendedDefaultPolicy::NoteBool(InlineObservation obs, bool value)
             m_FoldableSwitch++;
             break;
 
+        case InlineObservation::CALLSITE_UNROLLABLE_MEMOP:
+            m_UnrollableMemop++;
+            break;
+
         case InlineObservation::CALLEE_HAS_SWITCH:
             m_Switch++;
             break;
@@ -1411,7 +1427,7 @@ void ExtendedDefaultPolicy::NoteInt(InlineObservation obs, int value)
                     // in prejit-root mode.
                     bbLimit += 5 + m_Switch * 10;
                 }
-                bbLimit += m_FoldableBranch + m_FoldableSwitch * 10;
+                bbLimit += m_FoldableBranch + m_FoldableSwitch * 10 + m_UnrollableMemop * 2;
 
                 if ((unsigned)value > bbLimit)
                 {
@@ -1438,6 +1454,41 @@ void ExtendedDefaultPolicy::NoteDouble(InlineObservation obs, double value)
     // So far, CALLSITE_PROFILE_FREQUENCY is the only "double" property.
     assert(obs == InlineObservation::CALLSITE_PROFILE_FREQUENCY);
     m_ProfileFrequency = value;
+}
+
+//------------------------------------------------------------------------
+// EstimatedTotalILSize: Estimate final IL size to import.
+//    ExtendedDefaultPolicy has a better understanding on how many branches
+//    are foldable so we can roughly predict the final IL size the JIT will
+//    have to work with (all foldable branches will be eliminated early in the
+//    importer so they won't affect the time it takes to compile the callee)
+//
+// Return value:
+//    Estimated IL size to import
+
+unsigned ExtendedDefaultPolicy::EstimatedTotalILSize() const
+{
+    INT64 codeSize = (INT64)m_CodeSize;
+
+    // We assume each foldable branch reduces total IL size by 35 bytes, it's
+    // a pretty conservative guess, e.g. the following branch:
+    //
+    //  if (typeof(TKey) == typeof(byte))
+    //      return (byte)(object)left < (byte)(object)right;
+    //
+    // is recognized as foldable and removes 52 bytes of IL if TKey is not byte.
+    //
+    codeSize -= (INT64)m_FoldableBranch * 35;
+
+    // Foldable switches are usually able to fold more than foldable branches
+    //
+    codeSize -= (INT64)m_FoldableSwitch * 70;
+
+    // Assume we can't fold more than 70% of IL
+    //
+    codeSize = codeSize < (INT64)(m_CodeSize * 0.3) ? (INT64)(m_CodeSize * 0.3) : codeSize;
+
+    return (unsigned)codeSize;
 }
 
 //------------------------------------------------------------------------
@@ -1682,6 +1733,13 @@ double ExtendedDefaultPolicy::DetermineMultiplier()
             break;
     }
 
+    if (m_UnrollableMemop > 0)
+    {
+        multiplier += m_UnrollableMemop;
+        JITDUMP("\nInline candidate has %d unrollable memory operations.  Multiplier increased to %g.",
+                m_UnrollableMemop, multiplier);
+    }
+
     if (m_FoldableSwitch > 0)
     {
         multiplier += 6.0;
@@ -1808,6 +1866,7 @@ void ExtendedDefaultPolicy::OnDumpXml(FILE* file, unsigned indent) const
     XATTR_I4(m_FoldableExprUn)
     XATTR_I4(m_FoldableBranch)
     XATTR_I4(m_FoldableSwitch)
+    XATTR_I4(m_UnrollableMemop)
     XATTR_I4(m_Switch)
     XATTR_I4(m_DivByCns)
     XATTR_B(m_ReturnsStructByValue)
@@ -2276,7 +2335,12 @@ bool DiscretionaryPolicy::PropagateNeverToRuntime() const
     //
     switch (m_Observation)
     {
+        // Not-profitable depends on call-site:
         case InlineObservation::CALLEE_NOT_PROFITABLE_INLINE:
+            return false;
+
+        // If we mark no-returns as noinline we won't be able to recognize them
+        // as no-returns in future inlines.
         case InlineObservation::CALLEE_DOES_NOT_RETURN:
             return false;
 

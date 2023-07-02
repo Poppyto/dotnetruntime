@@ -695,7 +695,7 @@ mono_wasm_gc_finalize_notify (void)
 	/* use this if we are going to start the finalizer thread on wasm. */
 	mono_coop_sem_post (&finalizer_sem);
 #else
-	mono_threads_schedule_background_job (mono_runtime_do_background_work);
+	mono_main_thread_schedule_background_job (mono_runtime_do_background_work);
 #endif
 }
 
@@ -1254,12 +1254,6 @@ MonoArrayHandle
 mono_gc_alloc_handle_array (MonoVTable *vtable, gsize size, gsize max_length, gsize bounds_size)
 {
 	return MONO_HANDLE_NEW (MonoArray, mono_gc_alloc_array (vtable, size, max_length, bounds_size));
-}
-
-MonoStringHandle
-mono_gc_alloc_handle_string (MonoVTable *vtable, gsize size, gint32 len)
-{
-	return MONO_HANDLE_NEW (MonoString, mono_gc_alloc_string (vtable, size, len));
 }
 
 MonoObjectHandle

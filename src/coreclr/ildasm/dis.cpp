@@ -143,7 +143,7 @@ static void UnicodeToFile(_In_ __nullterminated const WCHAR* wz, FILE* pF)
 {
     unsigned endofline = 0x000A000D;
     int L;
-    if((L=(int)wcslen(wz))) fwrite(wz,L*sizeof(WCHAR),1,pF);
+    if((L=(int)u16_strlen(wz))) fwrite(wz,L*sizeof(WCHAR),1,pF);
     fwrite(&endofline,4,1,pF);
 }
 static void ToGUIOrFile(_In_ __nullterminated const char* sz, void* GUICookie)
@@ -1103,7 +1103,7 @@ BOOL Disassemble(IMDInternalImport *pImport, BYTE *ILHeader, void *GUICookie, md
                 {
                     WCHAR wzFileName[2048];
                     SourceLinesHelper(GUICookie, pLCD, wzFileName, 2048);
-                    bIsNewFile = (wcscmp(wzFileName,wzWasFileName)!=0);
+                    bIsNewFile = (u16_strcmp(wzFileName,wzWasFileName)!=0);
                     if(bIsNewFile||(pLCD->Line < ulWasLine))
                     {
                         wcscpy_s(wzWasFileName,2048,wzFileName);
@@ -1115,8 +1115,10 @@ BOOL Disassemble(IMDInternalImport *pImport, BYTE *ILHeader, void *GUICookie, md
                             pFile = NULL;
                             if(fopen_s(&pFile,szFileName,"rt") != 0)
                             {
-                                char* pch = strrchr(szFileName,'\\');
+                                char* pch = strrchr(szFileName, DIRECTORY_SEPARATOR_CHAR_A);
+#ifdef HOST_WINDOWS
                                 if(pch == NULL) pch = strrchr(szFileName,':');
+#endif
                                 pFile = NULL;
                                 if(pch) fopen_s(&pFile,pch+1,"rt");
                             }

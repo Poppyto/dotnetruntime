@@ -12,9 +12,7 @@ namespace System.Text.Json.SourceGeneration.Tests
     public sealed partial class UnsupportedTypesTests_Metadata : UnsupportedTypesTests
     {
         public UnsupportedTypesTests_Metadata() : base(
-            new StringSerializerWrapper(
-                UnsupportedTypesTestsContext_Metadata.Default,
-                (options) => new UnsupportedTypesTestsContext_Metadata(options)),
+            new StringSerializerWrapper(UnsupportedTypesTestsContext_Metadata.Default),
             supportsJsonPathOnSerialize: true)
         {
         }
@@ -25,6 +23,7 @@ namespace System.Text.Json.SourceGeneration.Tests
         [JsonSerializable(typeof(ClassWithIntPtrConverter))]
         // Unsupported types:
         [JsonSerializable(typeof(Type))]
+        [JsonSerializable(typeof(ClassWithType<object>))]
         [JsonSerializable(typeof(ClassWithType<Type>))]
         [JsonSerializable(typeof(ConstructorInfo))]
         [JsonSerializable(typeof(ClassWithType<ConstructorInfo>))]
@@ -32,6 +31,10 @@ namespace System.Text.Json.SourceGeneration.Tests
         [JsonSerializable(typeof(ClassWithType<PropertyInfo>))]
         [JsonSerializable(typeof(SerializationInfo))]
         [JsonSerializable(typeof(ClassWithType<SerializationInfo>))]
+        [JsonSerializable(typeof(int[,]))]
+        [JsonSerializable(typeof(ClassWithType<int[,]>))]
+        [JsonSerializable(typeof(bool[,,,]))]
+        [JsonSerializable(typeof(ClassWithType<bool[,,,]>))]
         [JsonSerializable(typeof(IntPtr))]
         [JsonSerializable(typeof(ClassWithType<IntPtr>))]
         [JsonSerializable(typeof(ClassWithIntPtr))]
@@ -39,6 +42,10 @@ namespace System.Text.Json.SourceGeneration.Tests
         [JsonSerializable(typeof(ClassWithType<IntPtr?>))]
         [JsonSerializable(typeof(UIntPtr))]
         [JsonSerializable(typeof(ClassWithType<UIntPtr>))]
+        [JsonSerializable(typeof(Memory<byte>))]
+        [JsonSerializable(typeof(ClassWithType<Memory<byte>>))]
+        [JsonSerializable(typeof(ReadOnlyMemory<byte>))]
+        [JsonSerializable(typeof(ClassWithType<ReadOnlyMemory<byte>>))]
         [JsonSerializable(typeof(IAsyncEnumerable<int>))]
         [JsonSerializable(typeof(ClassWithType<IAsyncEnumerable<int>>))]
         [JsonSerializable(typeof(ClassThatImplementsIAsyncEnumerable))]
@@ -52,9 +59,7 @@ namespace System.Text.Json.SourceGeneration.Tests
     public sealed partial class UnsupportedTypesTests_Default : UnsupportedTypesTests
     {
         public UnsupportedTypesTests_Default() : base(
-            new StringSerializerWrapper(
-                UnsupportedTypesTestsContext_Default.Default,
-                (options) => new UnsupportedTypesTestsContext_Default(options)),
+            new StringSerializerWrapper(UnsupportedTypesTestsContext_Default.Default),
             supportsJsonPathOnSerialize: false)
         {
         }
@@ -64,6 +69,7 @@ namespace System.Text.Json.SourceGeneration.Tests
         [JsonSerializable(typeof(ClassWithIntPtrConverter))]
         // Unsupported types:
         [JsonSerializable(typeof(Type))]
+        [JsonSerializable(typeof(ClassWithType<object>))]
         [JsonSerializable(typeof(ClassWithType<Type>))]
         [JsonSerializable(typeof(ConstructorInfo))]
         [JsonSerializable(typeof(ClassWithType<ConstructorInfo>))]
@@ -71,6 +77,10 @@ namespace System.Text.Json.SourceGeneration.Tests
         [JsonSerializable(typeof(ClassWithType<PropertyInfo>))]
         [JsonSerializable(typeof(SerializationInfo))]
         [JsonSerializable(typeof(ClassWithType<SerializationInfo>))]
+        [JsonSerializable(typeof(int[,]))]
+        [JsonSerializable(typeof(ClassWithType<int[,]>))]
+        [JsonSerializable(typeof(bool[,,,]))]
+        [JsonSerializable(typeof(ClassWithType<bool[,,,]>))]
         [JsonSerializable(typeof(IntPtr))]
         [JsonSerializable(typeof(ClassWithType<IntPtr>))]
         [JsonSerializable(typeof(ClassWithIntPtr))]
@@ -78,6 +88,10 @@ namespace System.Text.Json.SourceGeneration.Tests
         [JsonSerializable(typeof(ClassWithType<IntPtr?>))]
         [JsonSerializable(typeof(UIntPtr))]
         [JsonSerializable(typeof(ClassWithType<UIntPtr>))]
+        [JsonSerializable(typeof(Memory<byte>))]
+        [JsonSerializable(typeof(ClassWithType<Memory<byte>>))]
+        [JsonSerializable(typeof(ReadOnlyMemory<byte>))]
+        [JsonSerializable(typeof(ClassWithType<ReadOnlyMemory<byte>>))]
         [JsonSerializable(typeof(IAsyncEnumerable<int>))]
         [JsonSerializable(typeof(ClassWithType<IAsyncEnumerable<int>>))]
         [JsonSerializable(typeof(ClassThatImplementsIAsyncEnumerable))]
